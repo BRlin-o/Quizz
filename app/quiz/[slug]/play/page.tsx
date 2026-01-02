@@ -1,0 +1,77 @@
+import { getQuizQuestions, getQuizSets } from "@/lib/quiz-data";
+import QuizWrapper from "@/components/QuizWrapper";
+import { notFound, redirect } from "next/navigation";
+import { Question } from "@/types";
+
+interface PageProps {
+    params: Promise<{
+        slug: string;
+    }>;
+    searchParams: Promise<{
+        files?: string;
+        shuffle_seed?: string;
+    }>;
+}
+
+// Simple seeded random number generator (Linear Congruential Generator)
+function mulberry32(a: number) {
+    return function () {
+        var t = a += 0x6D2B79F5;
+        t = Math.imul(t ^ t >>> 15, t | 1);
+        t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+        return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    }
+}
+
+export default async function QuizPlayPage({ params, searchParams }: PageProps) {
+    const { slug } = await params;
+    const { files, shuffle_seed } = await searchParams;
+
+    if (!files) {
+        redirect(`/quiz/${slug}`);
+    }
+
+    const filenames = files.split(',').filter(Boolean);
+
+    // Fetch quiz set metadata to get a nice title
+    const quizSets = await getQuizSets();
+    const quizSet = quizSets.find(q => q.slug === slug);
+
+    if (!quizSet) {
+        notFound();
+    }
+
+    let questions: Question[] = [];
+
+    try {
+        questions = await getQuizQuestions(slug, filenames);
+
+        // Handle Seeded Shuffle
+        const seedStr = shuffle_seed;
+        // Check if seed is provided and NOT '-1'
+        if (seedStr && seedStr !== '-1') {
+            // Convert string seed to number for the PRNG
+            let seedNum = parseInt(seedStr);
+            if (isNaN(seedNum)) {
+                // If user put text manually in URL
+                seedNum = seedStr.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+            }
+
+            const random = mulberry32(seedNum);
+
+            // Fisher-Yates shuffle with seeded random
+            for (let i = questions.length - 1; i > 0; i--) {
+                const j = Math.floor(random() * (i + 1));
+                [questions[i], questions[j]] = [questions[j], questions[i]];
+            }
+        }
+    } catch (error) {
+        console.error(error);
+        notFound();
+    }
+
+    // Construct a title like "NVIDIA NCP-ADS (Standard + ZH)" or just "NVIDIA NCP-ADS"
+    const title = quizSet.title;
+
+    return <QuizWrapper questions={questions} title={title} />;
+}
