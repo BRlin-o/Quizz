@@ -1,9 +1,9 @@
 import { getQuizSets } from "@/lib/quiz-data";
 import { notFound } from "next/navigation";
 import ReactMarkdown from "react-markdown";
-import QuizVariantSelector from "@/components/QuizVariantSelector";
+import QuizSidebar from "@/components/QuizSidebar";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Edit } from "lucide-react";
 
 interface PageProps {
     params: Promise<{
@@ -45,10 +45,16 @@ export default async function QuizDashboard({ params }: PageProps) {
                         </div>
                     </div>
 
-                    {/* Sidebar - Controls */}
+                    {/* Sidebar - Controls & History */}
                     <div className="lg:col-span-1">
-                        <div className="sticky top-8">
-                            <QuizVariantSelector slug={quiz.slug} groups={quiz.groups} />
+                        <div className="sticky top-8 space-y-4">
+                            <Link href={`/quiz/${quiz.slug}/editor`} className="block group">
+                                <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 group-hover:border-indigo-500 group-hover:shadow-md transition-all flex items-center justify-center gap-2">
+                                    <Edit size={18} className="text-slate-500 group-hover:text-indigo-600" />
+                                    <span className="font-semibold text-slate-700 group-hover:text-indigo-600">Open Editor</span>
+                                </div>
+                            </Link>
+                            <QuizSidebar slug={quiz.slug} groups={quiz.groups} />
                         </div>
                     </div>
                 </div>
@@ -56,3 +62,4 @@ export default async function QuizDashboard({ params }: PageProps) {
         </div>
     );
 }
+
