@@ -5,7 +5,9 @@ import path from 'path';
 // Path to questions.json relative to the project root
 // quiz-app is at .../quiz-app
 // outputs is at .../outputs
-const OUTPUTS_DIR = path.resolve(process.cwd(), '../outputs');
+const OUTPUTS_DIR = process.env.QUIZ_DATA_PATH
+    ? path.resolve(process.cwd(), process.env.QUIZ_DATA_PATH)
+    : path.resolve(process.cwd(), '../outputs');
 
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);

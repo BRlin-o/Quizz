@@ -2,7 +2,9 @@ import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 
-const OUTPUTS_DIR = path.resolve(process.cwd(), '../outputs');
+const OUTPUTS_DIR = process.env.QUIZ_DATA_PATH
+    ? path.resolve(process.cwd(), process.env.QUIZ_DATA_PATH)
+    : path.resolve(process.cwd(), '../outputs');
 
 interface PageProps {
     params: Promise<{
