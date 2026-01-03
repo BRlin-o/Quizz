@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Play, RotateCw, CheckCircle2, Terminal, Search, ChevronDown, CheckSquare, Square, PanelRightOpen, PanelRightClose, ChevronLeft, ChevronRight, ArrowLeftRight, FileInput, FileOutput, Languages } from 'lucide-react';
+import { X, Play, RotateCw, CheckCircle2, Terminal, Search, ChevronDown, CheckSquare, Square, PanelRightOpen, PanelRightClose, ChevronLeft, ChevronRight, ArrowLeftRight, FileInput, FileOutput, Languages, FileDiff, Layers } from 'lucide-react';
+import * as Diff from 'diff';
 import { addToast } from '@heroui/react';
 import { GlobalTranslationSettings, Template } from '@/config/translation';
 import AdditionalDataInput from './AdditionalDataInput';
@@ -72,6 +73,7 @@ export default function BatchTranslationInterface({
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
     const [previewPage, setPreviewPage] = useState(1);
     const [previewTab, setPreviewTab] = useState<'input' | 'output' | 'diff'>('input');
+    const [diffMode, setDiffMode] = useState<'text' | 'visual'>('text'); // 'text' = Inline Code Diff, 'visual' = Component Diff
     const [batchOutputs, setBatchOutputs] = useState<Record<number, string>>({});  // page -> raw output
     const logsEndRef = useRef<HTMLDivElement>(null);
 
@@ -157,11 +159,13 @@ export default function BatchTranslationInterface({
         setBatchOutputs({});
         setProgress(0);
 
+
         // Snapshot original questions and clear translated state
         setOriginalQuestions([...questions]);
         setTranslatedQuestions({});
         setShowTranslated(true); // Switch to translated view to show progress
 
+        const startTime = performance.now();
         addLog(`Starting batch job for ${localCheckedIds.length} questions...`);
         addLog(`Engine: ${jobSettings.config.engine} | Batch Size: ${jobSettings.batchSize || 10}`);
 
@@ -198,6 +202,7 @@ export default function BatchTranslationInterface({
 
             // === STEP 2: Process each batch ===
             for (let i = 0; i < selectedQs.length; i += batchSize) {
+                const batchStartTime = performance.now();
                 const batchNum = Math.floor(i / batchSize) + 1;
                 const chunk = selectedQs.slice(i, i + batchSize);
 
@@ -301,11 +306,13 @@ export default function BatchTranslationInterface({
                     // Store raw output for preview comparison
                     setBatchOutputs(prev => ({ ...prev, [batchNum]: translatedText }));
 
+                    const batchDuration = ((performance.now() - batchStartTime) / 1000).toFixed(2);
+
                     try {
                         const parsed = JSON.parse(translatedText);
 
                         if (Array.isArray(parsed)) {
-                            addLog(`  ✓ Batch ${batchNum} success: ${parsed.length} items returned`);
+                            addLog(`  ✓ Batch ${batchNum} success (${batchDuration}s): ${parsed.length} items returned`);
 
                             parsed.forEach((p: any) => {
                                 const originalQ = chunk.find(c => String(c.id) === String(p.id));
@@ -350,7 +357,7 @@ export default function BatchTranslationInterface({
                         }
                     } catch (parseErr) {
                         // Non-JSON response (might be plain text for single item)
-                        addLog(`  ⚠ Batch ${batchNum}: Non-JSON response, storing raw text`);
+                        addLog(`  ⚠ Batch ${batchNum} (${batchDuration}s): Non-JSON response, storing raw text`);
                         if (chunk.length === 1) {
                             const originalQ = chunk[0];
                             setResults(prev => [...prev, {
@@ -389,7 +396,8 @@ export default function BatchTranslationInterface({
                     }
 
                 } catch (e: any) {
-                    addLog(`  ✗ Batch ${batchNum} error: ${e.message}`);
+                    const batchDuration = ((performance.now() - batchStartTime) / 1000).toFixed(2);
+                    addLog(`  ✗ Batch ${batchNum} error (${batchDuration}s): ${e.message}`);
                 }
 
                 completed += chunk.length;
@@ -397,8 +405,9 @@ export default function BatchTranslationInterface({
             }
 
             // === STEP 7: Complete ===
+            const totalDuration = ((performance.now() - startTime) / 1000).toFixed(2);
             addLog("─".repeat(40));
-            addLog(`Batch translation complete. ${completed}/${selectedQs.length} items processed.`);
+            addLog(`Batch translation complete in ${totalDuration}s. ${completed}/${selectedQs.length} items processed.`);
             onUpdateQuestions(allUpdatedQuestions);
 
             addToast({
@@ -785,7 +794,10 @@ export default function BatchTranslationInterface({
                                         return previewQs.map(q => {
                                             let md = `## Question ${q.id}\n${q.question}`;
                                             if (q.options?.length) {
-                                                md += '\n\n**Options:**\n' + q.options.map((o: string, i: number) => `${String.fromCharCode(65 + i)}. ${o}`).join('\n');
+                                                md += '\n\n**Options:**\n' + q.options.map((o: any, i: number) => {
+                                                    const text = typeof o === 'object' && o !== null ? (o.text || JSON.stringify(o)) : String(o);
+                                                    return `${String.fromCharCode(65 + i)}. ${text}`;
+                                                }).join('\n');
                                             }
                                             if (q.answer) md += `\n\n**Answer:** ${q.answer}`;
                                             return md;
@@ -795,7 +807,10 @@ export default function BatchTranslationInterface({
                                         return previewQs.map(q => {
                                             let xml = `<item id="${q.id}">\n  <question>${q.question}</question>`;
                                             if (q.options?.length) {
-                                                xml += '\n  <options>\n' + q.options.map((o: string) => `    <option>${o}</option>`).join('\n') + '\n  </options>';
+                                                xml += '\n  <options>\n' + q.options.map((o: any) => {
+                                                    const text = typeof o === 'object' && o !== null ? (o.text || JSON.stringify(o)) : String(o);
+                                                    return `    <option>${text}</option>`;
+                                                }).join('\n') + '\n  </options>';
                                             }
                                             return xml + '\n</item>';
                                         }).join('\n');
@@ -836,57 +851,116 @@ export default function BatchTranslationInterface({
                                                 )
                                             )}
                                             {previewTab === 'diff' && (
-                                                <div className="space-y-4">
+                                                <div className="relative h-full flex flex-col">
+                                                    {/* Floating Toggle Button */}
+                                                    <div className="absolute top-2 right-4 z-10">
+                                                        <button
+                                                            onClick={() => setDiffMode(prev => prev === 'text' ? 'visual' : 'text')}
+                                                            className="flex items-center gap-2 px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded-full text-[10px] font-bold text-neutral-300 transition-all shadow-lg backdrop-blur-sm opacity-80 hover:opacity-100"
+                                                            title={diffMode === 'text' ? "Switch to Visual Diff" : "Switch to Text Diff"}
+                                                        >
+                                                            {diffMode === 'text' ? <Layers className="w-3.5 h-3.5" /> : <FileDiff className="w-3.5 h-3.5" />}
+                                                            {diffMode === 'text' ? 'Visual Diff' : 'Text Diff'}
+                                                        </button>
+                                                    </div>
+
                                                     {outputContent ? (() => {
                                                         try {
-                                                            const outputParsed = JSON.parse(outputContent);
-                                                            const outputItems = Array.isArray(outputParsed) ? outputParsed : [outputParsed];
-
-                                                            return previewQs.map(inputQ => {
-                                                                const outputQ = outputItems.find((o: any) => String(o.id) === String(inputQ.id));
-                                                                if (!outputQ) return null;
+                                                            // === MODE 1: VISUAL COMPONENT DIFF ===
+                                                            if (diffMode === 'visual') {
+                                                                const outputParsed = JSON.parse(outputContent);
+                                                                const outputItems = Array.isArray(outputParsed) ? outputParsed : [outputParsed];
 
                                                                 return (
-                                                                    <div key={inputQ.id} className="border border-neutral-800 rounded-lg overflow-hidden">
-                                                                        <div className="bg-neutral-800/50 px-3 py-1.5 text-[10px] font-bold text-neutral-400">
-                                                                            #{inputQ.id} - {inputQ.type}
-                                                                        </div>
-                                                                        {/* Question Diff */}
-                                                                        <div className="p-3 space-y-2">
-                                                                            <div className="grid grid-cols-2 gap-2">
-                                                                                <div>
-                                                                                    <div className="text-[9px] text-neutral-500 uppercase mb-1">Original</div>
-                                                                                    <div className="text-neutral-400 text-[11px] leading-relaxed">{inputQ.question}</div>
-                                                                                </div>
-                                                                                <div>
-                                                                                    <div className="text-[9px] text-green-500 uppercase mb-1">Translated</div>
-                                                                                    <div className="text-green-400 text-[11px] leading-relaxed">{outputQ.question || '—'}</div>
-                                                                                </div>
-                                                                            </div>
-                                                                            {/* Options Diff */}
-                                                                            {inputQ.options?.length > 0 && (
-                                                                                <div className="pt-2 border-t border-neutral-800/50">
-                                                                                    <div className="text-[9px] text-neutral-500 uppercase mb-1">Options</div>
-                                                                                    <div className="grid grid-cols-2 gap-2 text-[10px]">
-                                                                                        <div className="space-y-1">
-                                                                                            {inputQ.options.map((opt: string, i: number) => (
-                                                                                                <div key={i} className="text-neutral-500">{String.fromCharCode(65 + i)}. {opt}</div>
-                                                                                            ))}
+                                                                    <div className="space-y-4 pt-8">
+                                                                        {previewQs.map(inputQ => {
+                                                                            const outputQ = outputItems.find((o: any) => String(o.id) === String(inputQ.id));
+                                                                            if (!outputQ) return null;
+
+                                                                            return (
+                                                                                <div key={inputQ.id} className="border border-neutral-800 rounded-lg overflow-hidden">
+                                                                                    <div className="bg-neutral-800/50 px-3 py-1.5 text-[10px] font-bold text-neutral-400">
+                                                                                        #{inputQ.id} - {inputQ.type}
+                                                                                    </div>
+                                                                                    {/* Question Diff */}
+                                                                                    <div className="p-3 space-y-2">
+                                                                                        <div className="grid grid-cols-2 gap-2">
+                                                                                            <div>
+                                                                                                <div className="text-[9px] text-neutral-500 uppercase mb-1">Original</div>
+                                                                                                <div className="text-neutral-400 text-[11px] leading-relaxed">{inputQ.question}</div>
+                                                                                            </div>
+                                                                                            <div>
+                                                                                                <div className="text-[9px] text-green-500 uppercase mb-1">Translated</div>
+                                                                                                <div className="text-green-400 text-[11px] leading-relaxed">{outputQ.question || '—'}</div>
+                                                                                            </div>
                                                                                         </div>
-                                                                                        <div className="space-y-1">
-                                                                                            {(outputQ.options || []).map((opt: string, i: number) => (
-                                                                                                <div key={i} className="text-green-400/80">{String.fromCharCode(65 + i)}. {opt}</div>
-                                                                                            ))}
-                                                                                        </div>
+                                                                                        {/* Options Diff */}
+                                                                                        {inputQ.options?.length > 0 && (
+                                                                                            <div className="pt-2 border-t border-neutral-800/50">
+                                                                                                <div className="text-[9px] text-neutral-500 uppercase mb-1">Options</div>
+                                                                                                <div className="grid grid-cols-2 gap-2 text-[10px]">
+                                                                                                    <div className="space-y-1">
+                                                                                                        {inputQ.options.map((opt: any, i: number) => {
+                                                                                                            const text = typeof opt === 'object' && opt !== null ? (opt.text || JSON.stringify(opt)) : String(opt);
+                                                                                                            return (
+                                                                                                                <div key={i} className="text-neutral-500">{String.fromCharCode(65 + i)}. {text}</div>
+                                                                                                            );
+                                                                                                        })}
+                                                                                                    </div>
+                                                                                                    <div className="space-y-1">
+                                                                                                        {(outputQ.options || []).map((opt: any, i: number) => {
+                                                                                                            const text = typeof opt === 'object' && opt !== null ? (opt.text || JSON.stringify(opt)) : String(opt);
+                                                                                                            return (
+                                                                                                                <div key={i} className="text-green-400/80">{String.fromCharCode(65 + i)}. {text}</div>
+                                                                                                            );
+                                                                                                        })}
+                                                                                                    </div>
+                                                                                                </div>
+                                                                                            </div>
+                                                                                        )}
                                                                                     </div>
                                                                                 </div>
-                                                                            )}
-                                                                        </div>
+                                                                            );
+                                                                        })}
                                                                     </div>
                                                                 );
-                                                            });
-                                                        } catch {
-                                                            return <div className="text-amber-500">Unable to parse output for diff comparison</div>;
+                                                            }
+
+                                                            // === MODE 2: INLINE TEXT DIFF ===
+                                                            else {
+                                                                // Prepare text versions
+                                                                const inputText = generateInputContent();
+                                                                const outputText = outputContent;
+
+                                                                // Generate Diff
+                                                                // Use diffLines for a code-editor feel
+                                                                const changes = Diff.diffLines(inputText, outputText);
+
+                                                                return (
+                                                                    <div className="font-mono text-xs pt-8">
+                                                                        {changes.map((part, index) => {
+                                                                            const color = part.added ? 'text-green-400 bg-green-900/20' :
+                                                                                part.removed ? 'text-red-400 bg-red-900/20' :
+                                                                                    'text-neutral-400';
+
+                                                                            // Only show change indicators for added/removed
+                                                                            const lines = part.value.replace(/\n$/, '').split('\n');
+
+                                                                            return lines.map((line, lineIdx) => (
+                                                                                <div key={`${index}-${lineIdx}`} className={`flex ${color} min-w-full w-fit hover:bg-neutral-800/50 px-2`}>
+                                                                                    <span className="w-6 shrink-0 opacity-50 select-none text-right pr-3">
+                                                                                        {part.added ? '+' : part.removed ? '-' : ' '}
+                                                                                    </span>
+                                                                                    <span className="whitespace-pre-wrap break-all">{line}</span>
+                                                                                </div>
+                                                                            ));
+                                                                        })}
+                                                                    </div>
+                                                                );
+                                                            }
+
+                                                        } catch (e) {
+                                                            return <div className="text-amber-500 p-4">Unable to parse output for diff comparison: {(e as any).message}</div>;
                                                         }
                                                     })() : (
                                                         <div className="flex-1 flex items-center justify-center text-neutral-600 text-sm h-full">

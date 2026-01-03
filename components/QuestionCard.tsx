@@ -43,7 +43,7 @@ export default function QuestionCard({ languageMode }: QuestionCardProps) {
                 } else {
                     finishQuiz();
                 }
-            }, 1000); // 1.5s delay for feedback
+            }, 500); // 1.5s delay for feedback
         }
     };
 
