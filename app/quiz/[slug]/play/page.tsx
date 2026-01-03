@@ -10,6 +10,7 @@ interface PageProps {
     searchParams: Promise<{
         files?: string;
         shuffle_seed?: string;
+        mode?: string;
     }>;
 }
 
@@ -25,7 +26,7 @@ function mulberry32(a: number) {
 
 export default async function QuizPlayPage({ params, searchParams }: PageProps) {
     const { slug } = await params;
-    const { files, shuffle_seed } = await searchParams;
+    const { files, shuffle_seed, mode } = await searchParams;
 
     if (!files) {
         redirect(`/quiz/${slug}`);
@@ -43,8 +44,12 @@ export default async function QuizPlayPage({ params, searchParams }: PageProps) 
 
     let questions: Question[] = [];
 
+    // If mode is 'mixed', we do NOT merge translations (we want separate items).
+    // Otherwise (original/translated), we merge them so we can toggle.
+    const mergeTranslations = mode !== 'mixed';
+
     try {
-        questions = await getQuizQuestions(slug, filenames);
+        questions = await getQuizQuestions(slug, filenames, mergeTranslations);
 
         // Handle Seeded Shuffle
         const seedStr = shuffle_seed;
@@ -73,5 +78,5 @@ export default async function QuizPlayPage({ params, searchParams }: PageProps) 
     // Construct a title like "NVIDIA NCP-ADS (Standard + ZH)" or just "NVIDIA NCP-ADS"
     const title = quizSet.title;
 
-    return <QuizWrapper questions={questions} title={title} />;
+    return <QuizWrapper questions={questions} title={title} mode={mode || 'original'} />;
 }

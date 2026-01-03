@@ -8,14 +8,20 @@ import QuizInterface from '@/components/QuizInterface'; // We will create this n
 interface QuizWrapperProps {
     questions: Question[];
     title: string;
+    mode: string;
 }
 
-export default function QuizWrapper({ questions, title }: QuizWrapperProps) {
+export default function QuizWrapper({ questions, title, mode }: QuizWrapperProps) {
     const startQuiz = useQuizStore((state) => state.startQuiz);
+    const updateSettings = useQuizStore((state) => state.updateSettings);
 
     useEffect(() => {
+        // Set initial language preference based on mode
+        const lang = mode === 'translated' ? 'zh' : 'en';
+        updateSettings({ preferredLanguage: lang });
+
         startQuiz(questions, title);
-    }, [questions, title, startQuiz]);
+    }, [questions, title, startQuiz, mode, updateSettings]);
 
     return <QuizInterface />;
 }

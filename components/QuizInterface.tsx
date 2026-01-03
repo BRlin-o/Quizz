@@ -7,8 +7,9 @@ import ResultView from './ResultView';
 import { Button, Card, Spinner } from '@heroui/react';
 import { ChevronLeft } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import QuestionNavigator from './QuestionNavigator';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import LanguageSwitcher, { LanguageMode } from './LanguageSwitcher';
 import QuizSettings from './QuizSettings';
 
@@ -19,8 +20,25 @@ export default function QuizInterface() {
     const questionsLength = useQuizStore((state) => state.questions.length);
     const quizTitle = useQuizStore((state) => state.quizTitle);
     const currentIndex = useQuizStore((state) => state.currentIndex);
+    const settings = useQuizStore((state) => state.settings);
+    const router = useRouter();
 
-    const [languageMode, setLanguageMode] = useState<LanguageMode>('en');
+    // Initialize with settings or default
+    const [languageMode, setLanguageMode] = useState<LanguageMode>(
+        (settings.preferredLanguage as LanguageMode) || 'en'
+    );
+
+    // Sync with settings if they change (e.g. from QuizWrapper)
+    // But allow local override? Yes.
+    useEffect(() => {
+        if (settings.preferredLanguage) {
+            setLanguageMode(settings.preferredLanguage as LanguageMode);
+        }
+    }, [settings.preferredLanguage]);
+
+    const hasTranslations = currentQuestion &&
+        currentQuestion.translations &&
+        Object.keys(currentQuestion.translations).length > 0;
 
     if (isFinished) {
         return <ResultView />;
@@ -34,19 +52,20 @@ export default function QuizInterface() {
         );
     }
 
+    const maxWidthClass = settings.layoutMode === 'full' ? 'max-w-full px-4' : 'max-w-3xl mx-auto';
+
     return (
         <div className="min-h-screen bg-slate-50 flex flex-col p-4 md:p-6 font-sans text-slate-800">
-            <div className="w-full max-w-3xl mx-auto flex-1 flex flex-col">
+            <div className={`w-full ${maxWidthClass} flex-1 flex flex-col transition-all duration-300`}>
                 {/* Header */}
                 <div className="flex flex-col md:flex-row items-center justify-between mb-6 gap-4">
                     <div className="flex items-center gap-2 w-full md:w-auto">
                         <Button
-                            as={Link}
-                            href="/"
                             variant="light"
                             isIconOnly
                             className="text-slate-500 hover:text-slate-900"
-                            aria-label="Back to Home"
+                            aria-label="Back to Last Page"
+                            onPress={() => router.back()}
                         >
                             <ChevronLeft size={24} />
                         </Button>
@@ -61,17 +80,9 @@ export default function QuizInterface() {
 
                     <div className="flex items-center gap-2 w-full md:w-auto justify-between md:justify-end">
                         <QuizSettings />
-                        <LanguageSwitcher currentMode={languageMode} onModeChange={setLanguageMode} />
-                        <div className="flex flex-col items-end">
-                            <div className="text-sm font-medium text-slate-500 bg-white px-3 py-1 rounded-full shadow-sm border border-slate-100 whitespace-nowrap">
-                                Q{currentIndex + 1} / {questionsLength}
-                            </div>
-                            {currentQuestion?.originalIndex && (
-                                <span className="text-[10px] text-slate-400 mt-1 mr-2">
-                                    Original #{currentQuestion.originalIndex}
-                                </span>
-                            )}
-                        </div>
+                        {hasTranslations && (
+                            <LanguageSwitcher currentMode={languageMode} onModeChange={setLanguageMode} />
+                        )}
                     </div>
                 </div>
 

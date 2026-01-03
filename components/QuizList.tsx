@@ -13,7 +13,7 @@ export default function QuizList({ quizSets }: QuizListProps) {
     return (
         <div className="grid md:grid-cols-2 gap-6">
             {quizSets.map((quiz) => {
-                const totalQuestions = quiz.variants.reduce((acc, v) => acc + v.questionCount, 0);
+                const totalQuestions = quiz.groups.reduce((acc, g) => acc + g.baseQuestionCount, 0);
 
                 return (
                     <Link
@@ -31,7 +31,7 @@ export default function QuizList({ quizSets }: QuizListProps) {
                                         {quiz.title}
                                     </h3>
                                     <p className="text-sm text-slate-500 mt-1">
-                                        {quiz.variants.length} Variants • {totalQuestions} Total Questions
+                                        {quiz.groups.length} Sets • {totalQuestions} Total Questions
                                     </p>
                                 </div>
                             </CardHeader>

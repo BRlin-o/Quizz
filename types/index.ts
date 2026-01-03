@@ -18,12 +18,29 @@ export interface Question {
     analysis?: string;
     translations?: Record<string, QuestionLocalizedContent>;
     originalIndex?: number; // The 1-based index from the source file
+
+    // Metadata
+    created_at?: string;
+    translation_engine?: 'google' | 'gpt' | 'none' | string;
+    source?: string;
 }
 
 export interface QuizVariant {
-    filename: string; // e.g. "questions.json"
-    label: string;    // e.g. "questions" or "questions_zh"
-    questionCount: number;
+    filename: string; // e.g. "questions_zh.json"
+    language: string; // e.g. "zh", "en"
+    label: string;    // e.g. "Chinese", "Original"
+    metadata?: {
+        translation_engine?: string;
+        source?: string;
+        created_at?: string;
+    };
+}
+
+export interface QuizSetGroup {
+    id: string; // Base identifier, e.g. "questions" or "questions_part2"
+    label: string; // Display name, e.g. "Questions 1-70"
+    baseQuestionCount: number;
+    variants: QuizVariant[]; // helper files, including the base one if needed, or just list available languages
 }
 
 export interface QuizSet {
@@ -32,5 +49,5 @@ export interface QuizSet {
     description?: string;
     tags?: string[];
     readmeContent: string; // Raw markdown
-    variants: QuizVariant[];
+    groups: QuizSetGroup[];
 }

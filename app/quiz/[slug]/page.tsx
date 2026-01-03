@@ -48,7 +48,7 @@ export default async function QuizDashboard({ params }: PageProps) {
                     {/* Sidebar - Controls */}
                     <div className="lg:col-span-1">
                         <div className="sticky top-8">
-                            <QuizVariantSelector slug={quiz.slug} variants={quiz.variants} />
+                            <QuizVariantSelector slug={quiz.slug} groups={quiz.groups} />
                         </div>
                     </div>
                 </div>

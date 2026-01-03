@@ -88,12 +88,12 @@ export default function QuestionCard({ languageMode }: QuestionCardProps) {
         if (languageMode === 'split') {
             return (
                 <div className="flex flex-col">
-                    <span className="text-slate-700 font-medium leading-relaxed">{textEn}</span>
+                    <span>{textEn}</span>
                     <span className="text-slate-500 text-sm mt-1">{textZh}</span>
                 </div>
             );
         }
-        return <span className="text-slate-700 font-medium leading-relaxed">{languageMode === 'zh' ? textZh : textEn}</span>;
+        return <span>{languageMode === 'zh' ? textZh : textEn}</span>;
     };
 
 
@@ -103,6 +103,48 @@ export default function QuestionCard({ languageMode }: QuestionCardProps) {
         visible: { opacity: 1, x: 0 },
         exit: { opacity: 0, x: -20 }
     };
+
+    // Style Mappings
+    const fontSizes = {
+        sm: {
+            question: 'text-lg md:text-xl',
+            option: 'text-sm',
+            analysis: 'text-xs'
+        },
+        md: {
+            question: 'text-xl md:text-2xl',
+            option: 'text-base',
+            analysis: 'text-sm'
+        },
+        lg: {
+            question: 'text-2xl md:text-3xl',
+            option: 'text-lg',
+            analysis: 'text-base'
+        },
+        xl: {
+            question: 'text-3xl md:text-4xl',
+            option: 'text-xl',
+            analysis: 'text-lg'
+        }
+    };
+
+    const densities = {
+        compact: {
+            ySpace: 'space-y-2',
+            p: 'p-3',
+            mb: 'mb-4',
+            leading: 'leading-snug'
+        },
+        comfortable: {
+            ySpace: 'space-y-4',
+            p: 'p-4',
+            mb: 'mb-6',
+            leading: 'leading-relaxed'
+        }
+    };
+
+    const currentFontSize = fontSizes[settings.fontSize || 'md'];
+    const currentDensity = densities[settings.density || 'comfortable'];
 
     return (
         <div className="flex-1 flex flex-col h-full overflow-hidden">
@@ -116,18 +158,22 @@ export default function QuestionCard({ languageMode }: QuestionCardProps) {
                     transition={{ duration: 0.3 }}
                     className="flex flex-col h-full"
                 >
-                    {/* Scrollable Content Area: Question + Options + Analysis */}
+                    {/* Scrollable Content Area */}
                     <ScrollShadow className="flex-1 px-1">
                         <div className="pb-4">
                             {/* Question Text */}
-                            <div className="mb-6">
-                                <h2 className="text-xl md:text-2xl font-bold text-slate-800 leading-snug">
+                            <div className={currentDensity.mb}>
+                                <h2 className={cn(
+                                    "font-bold text-slate-800",
+                                    currentFontSize.question,
+                                    currentDensity.leading
+                                )}>
                                     {renderText('question')}
                                 </h2>
                             </div>
 
                             {/* Options List */}
-                            <div className="space-y-3">
+                            <div className={currentDensity.ySpace}>
                                 {question.options.map((option) => {
                                     const isSelected = selectedAnswer === option.label;
                                     const isCorrect = option.label === question.correct_answer;
@@ -150,9 +196,9 @@ export default function QuestionCard({ languageMode }: QuestionCardProps) {
                                             onClick={() => handleSelect(option.label)}
                                             disabled={isAnswered}
                                             className={cn(
-                                                "w-full text-left p-4 rounded-xl border-2 transition-all duration-200 flex items-start group relative outline-none",
+                                                "w-full text-left rounded-xl border-2 transition-all duration-200 flex items-start group relative outline-none",
+                                                currentDensity.p,
                                                 isAnswered ? "cursor-default" : "cursor-pointer hover:border-indigo-300",
-                                                // Custom styles based on state
                                                 isSelected && isCorrect ? "bg-green-100 border-green-500" :
                                                     isSelected && !isCorrect ? "bg-red-100 border-red-500" :
                                                         !isSelected && isCorrect && isAnswered ? "bg-green-50 border-green-400 border-dashed" :
@@ -168,7 +214,9 @@ export default function QuestionCard({ languageMode }: QuestionCardProps) {
                                                 {option.label}
                                             </span>
                                             <div className="flex-1 pt-1">
-                                                {renderOptionContent(option.label)}
+                                                <div className={cn("font-medium", currentFontSize.option, currentDensity.leading, "text-slate-700")}>
+                                                    {renderOptionContent(option.label)}
+                                                </div>
                                             </div>
                                             {icon && <span className="ml-2 pt-1">{icon}</span>}
                                         </button>
@@ -176,12 +224,17 @@ export default function QuestionCard({ languageMode }: QuestionCardProps) {
                                 })}
                             </div>
 
-                            {/* Analysis Section (Now inside scroll) */}
+                            {/* Analysis Section */}
                             {isAnswered && (question.analysis || (question.translations?.zh?.analysis)) && (
                                 <motion.div
                                     initial={{ opacity: 0, y: 10 }}
                                     animate={{ opacity: 1, y: 0 }}
-                                    className="mt-6 p-4 bg-blue-50 border border-blue-100 rounded-xl text-blue-900 text-sm leading-relaxed"
+                                    className={cn(
+                                        "mt-6 bg-blue-50 border border-blue-100 rounded-xl text-blue-900",
+                                        currentDensity.p,
+                                        currentFontSize.analysis,
+                                        currentDensity.leading
+                                    )}
                                 >
                                     <span className="font-bold block mb-1">Analysis:</span>
                                     {renderText('analysis')}
