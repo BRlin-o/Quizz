@@ -108,16 +108,25 @@ export default function AutoSaveProvider({
     useEffect(() => {
         if (!isInitialized.current && questions.length > 0) {
             isInitialized.current = true;
-            saveCurrentSession();
+
+            // Check if we actually have data to save
+            const hasProgress = currentIndex > 0 || Object.keys(answers).length > 0 || isFinished;
+            if (hasProgress) {
+                saveCurrentSession();
+            }
         }
-    }, [questions.length, saveCurrentSession]);
+    }, [questions.length, currentIndex, answers, isFinished, saveCurrentSession]);
 
     // Auto-save on state changes (debounced)
     useEffect(() => {
         if (!isInitialized.current) return;
 
         const timeoutId = setTimeout(() => {
-            saveCurrentSession();
+            // Check if we actually have data to save
+            const hasProgress = currentIndex > 0 || Object.keys(answers).length > 0 || isFinished;
+            if (hasProgress) {
+                saveCurrentSession();
+            }
         }, 500); // 500ms debounce
 
         return () => clearTimeout(timeoutId);

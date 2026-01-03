@@ -44,11 +44,8 @@ export default function PracticeHistory({ slug }: PracticeHistoryProps) {
     }
 
     const handleResume = (session: PracticeSession) => {
-        if (session.isCompleted) {
-            router.push(`/quiz/${slug}/analysis/${session.id}`);
-            return;
-        }
-
+        // ALWAYS go to play mode when clicking resume
+        // The store handles resetting 'isFinished' if needed
         const params = new URLSearchParams();
         params.set('mode', session.mode);
         params.set('files', session.filenames.join(','));
@@ -57,6 +54,10 @@ export default function PracticeHistory({ slug }: PracticeHistoryProps) {
         }
         params.set('resume', session.id);
         router.push(`/quiz/${slug}/play?${params.toString()}`);
+    };
+
+    const handleAnalysis = (session: PracticeSession) => {
+        router.push(`/quiz/${slug}/analysis/${session.id}`);
     };
 
     const handleDelete = (sessionId: string) => {
@@ -143,17 +144,33 @@ export default function PracticeHistory({ slug }: PracticeHistoryProps) {
 
                                 {/* Actions - show on hover */}
                                 <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <Tooltip content={session.isCompleted ? 'Review' : 'Resume'}>
+                                    {/* Analysis Button - Always show if session exists */}
+                                    <Tooltip content="Analysis">
                                         <Button
                                             isIconOnly
                                             size="sm"
                                             variant="light"
-                                            color="primary"
-                                            onPress={() => handleResume(session)}
+                                            color="secondary"
+                                            onPress={() => handleAnalysis(session)}
                                         >
-                                            {session.isCompleted ? <Trophy size={14} /> : <PlayCircle size={14} />}
+                                            <Trophy size={14} />
                                         </Button>
                                     </Tooltip>
+
+                                    {/* Resume Button - Show if not ALL questions answered (even if technically 'finished' previously) */}
+                                    {answeredCount < totalCount && (
+                                        <Tooltip content="Resume">
+                                            <Button
+                                                isIconOnly
+                                                size="sm"
+                                                variant="light"
+                                                color="primary"
+                                                onPress={() => handleResume(session)}
+                                            >
+                                                <PlayCircle size={14} />
+                                            </Button>
+                                        </Tooltip>
+                                    )}
                                     <Tooltip content="Delete">
                                         <Button
                                             isIconOnly
