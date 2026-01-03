@@ -1,23 +1,29 @@
 import { create } from 'zustand';
-import { Question } from '@/types';
+import { Question, PracticeSession } from '@/types';
 
 interface QuizState {
     questions: Question[];
     quizTitle: string;
     currentIndex: number;
     answers: Record<string | number, string>; // question id -> selected option label
+    bookmarkedQuestions: (string | number)[];  // Bookmarked question IDs
+    sessionId: string | null;                  // Current session ID
     isStarted: boolean;
     isFinished: boolean;
     score: number;
 
     // Actions
     startQuiz: (questions: Question[], title: string) => void;
+    startQuizFromSession: (session: PracticeSession) => void;  // Restore from session
     answerQuestion: (questionId: string | number, answer: string) => void;
+    toggleBookmark: (questionId: string | number) => void;     // Toggle bookmark
+    isBookmarked: (questionId: string | number) => boolean;    // Check if bookmarked
     nextQuestion: () => void;
     prevQuestion: () => void;
     jumpToQuestion: (index: number) => void;
     restartQuiz: () => void;
     finishQuiz: () => void;
+    setSessionId: (id: string) => void;
 
     // Settings state & actions
     settings: {
@@ -45,6 +51,8 @@ export const useQuizStore = create<QuizState>()(
             quizTitle: '',
             currentIndex: 0,
             answers: {},
+            bookmarkedQuestions: [],
+            sessionId: null,
             isStarted: false,
             isFinished: false,
             score: 0,
@@ -55,6 +63,22 @@ export const useQuizStore = create<QuizState>()(
                     quizTitle: title,
                     currentIndex: 0,
                     answers: {},
+                    bookmarkedQuestions: [],
+                    sessionId: null,
+                    isStarted: true,
+                    isFinished: false,
+                    score: 0,
+                });
+            },
+
+            startQuizFromSession: (session) => {
+                set({
+                    questions: session.questions,
+                    quizTitle: session.quizTitle,
+                    currentIndex: session.currentIndex,
+                    answers: session.answers,
+                    bookmarkedQuestions: session.bookmarkedQuestions,
+                    sessionId: session.id,
                     isStarted: true,
                     isFinished: false,
                     score: 0,
@@ -65,6 +89,29 @@ export const useQuizStore = create<QuizState>()(
                 set((state) => ({
                     answers: { ...state.answers, [questionId]: answer },
                 }));
+            },
+
+            toggleBookmark: (questionId) => {
+                set((state) => {
+                    const isCurrentlyBookmarked = state.bookmarkedQuestions.includes(questionId);
+                    if (isCurrentlyBookmarked) {
+                        return {
+                            bookmarkedQuestions: state.bookmarkedQuestions.filter(id => id !== questionId)
+                        };
+                    } else {
+                        return {
+                            bookmarkedQuestions: [...state.bookmarkedQuestions, questionId]
+                        };
+                    }
+                });
+            },
+
+            isBookmarked: (questionId) => {
+                return get().bookmarkedQuestions.includes(questionId);
+            },
+
+            setSessionId: (id) => {
+                set({ sessionId: id });
             },
 
             nextQuestion: () => {
@@ -112,6 +159,7 @@ export const useQuizStore = create<QuizState>()(
                 set(() => ({
                     currentIndex: 0,
                     answers: {},
+                    bookmarkedQuestions: [],
                     isFinished: false,
                     score: 0,
                     isStarted: true,

@@ -51,3 +51,29 @@ export interface QuizSet {
     readmeContent: string; // Raw markdown
     groups: QuizSetGroup[];
 }
+
+// Practice Session - tracks quiz progress and history
+export interface PracticeSession {
+    id: string;                              // Unique session ID (UUID)
+    quizSlug: string;                        // Quiz set slug
+    quizTitle: string;                       // Quiz title for display
+    filenames: string[];                     // Question files used
+    shuffleSeed?: string;                    // Shuffle seed if applied
+    mode: string;                            // Mode (original/translated/mixed)
+
+    // Progress data
+    questions: Question[];                   // Question snapshot
+    currentIndex: number;                    // Current question index
+    answers: Record<string | number, string>; // Answer records
+    bookmarkedQuestions: (string | number)[]; // Bookmarked question IDs
+
+    // Timestamps
+    startedAt: string;                       // Start time (ISO string)
+    lastUpdatedAt: string;                   // Last update time
+    completedAt?: string;                    // Completion time (if finished)
+
+    // Results
+    isCompleted: boolean;
+    score?: number;
+    totalQuestions: number;
+}
