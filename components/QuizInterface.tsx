@@ -4,8 +4,8 @@ import { useQuizStore } from '@/store/useQuizStore';
 import ProgressBar from './ProgressBar';
 import QuestionCard from './QuestionCard';
 import ResultView from './ResultView';
-import { Button, Card, Spinner } from '@heroui/react';
-import { ChevronLeft } from 'lucide-react';
+import { Button, Card, Spinner, Tooltip } from '@heroui/react';
+import { ChevronLeft, Flag } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import QuestionNavigator from './QuestionNavigator';
@@ -21,6 +21,8 @@ export default function QuizInterface() {
     const quizTitle = useQuizStore((state) => state.quizTitle);
     const currentIndex = useQuizStore((state) => state.currentIndex);
     const settings = useQuizStore((state) => state.settings);
+    const answers = useQuizStore((state) => state.answers);
+    const finishQuiz = useQuizStore((state) => state.finishQuiz);
     const router = useRouter();
 
     // Initialize with settings or default
@@ -39,6 +41,10 @@ export default function QuizInterface() {
     const hasTranslations = currentQuestion &&
         currentQuestion.translations &&
         Object.keys(currentQuestion.translations).length > 0;
+
+    // Calculate answered count
+    const answeredCount = Object.keys(answers).length;
+    const hasAnswers = answeredCount > 0;
 
     if (isFinished) {
         return <ResultView />;
@@ -79,6 +85,21 @@ export default function QuizInterface() {
                     </div>
 
                     <div className="flex items-center gap-2 w-full md:w-auto justify-between md:justify-end">
+                        {/* View Results / End Quiz button */}
+                        {hasAnswers && (
+                            <Tooltip content={`View results (${answeredCount}/${questionsLength} answered)`}>
+                                <Button
+                                    size="sm"
+                                    variant="flat"
+                                    color="warning"
+                                    startContent={<Flag size={14} />}
+                                    onPress={() => finishQuiz()}
+                                    className="font-medium"
+                                >
+                                    Results
+                                </Button>
+                            </Tooltip>
+                        )}
                         <QuizSettings />
                         {hasTranslations && (
                             <LanguageSwitcher currentMode={languageMode} onModeChange={setLanguageMode} />
@@ -97,3 +118,4 @@ export default function QuizInterface() {
         </div>
     );
 }
+

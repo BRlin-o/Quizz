@@ -3,7 +3,7 @@
 import { useQuizStore } from '@/store/useQuizStore';
 import { Button, ScrollShadow, cn } from '@heroui/react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle2, XCircle, ArrowRight } from 'lucide-react';
+import { CheckCircle2, XCircle, ArrowRight, Bookmark, BookmarkCheck } from 'lucide-react';
 import { LanguageMode } from './LanguageSwitcher';
 import { Question } from '@/types';
 
@@ -19,6 +19,8 @@ export default function QuestionCard({ languageMode }: QuestionCardProps) {
         answerQuestion,
         nextQuestion,
         finishQuiz,
+        toggleBookmark,
+        bookmarkedQuestions,
         settings // Access settings
     } = useQuizStore();
 
@@ -27,6 +29,7 @@ export default function QuestionCard({ languageMode }: QuestionCardProps) {
     const selectedAnswer = answers[question.id];
     const isAnswered = !!selectedAnswer;
     const isLastQuestion = currentIndex === questions.length - 1;
+    const isBookmarked = bookmarkedQuestions.includes(question.id);
 
     const handleSelect = (optionLabel: string) => {
         if (isAnswered) return;
@@ -161,15 +164,27 @@ export default function QuestionCard({ languageMode }: QuestionCardProps) {
                     {/* Scrollable Content Area */}
                     <ScrollShadow className="flex-1 px-1">
                         <div className="pb-4">
-                            {/* Question Text */}
-                            <div className={currentDensity.mb}>
+                            {/* Question Header with Bookmark */}
+                            <div className={cn("flex items-start justify-between gap-3", currentDensity.mb)}>
                                 <h2 className={cn(
-                                    "font-bold text-slate-800",
+                                    "font-bold text-slate-800 flex-1",
                                     currentFontSize.question,
                                     currentDensity.leading
                                 )}>
                                     {renderText('question')}
                                 </h2>
+                                <button
+                                    onClick={() => toggleBookmark(question.id)}
+                                    className={cn(
+                                        "flex-shrink-0 p-2 rounded-lg transition-all duration-200 hover:scale-110",
+                                        isBookmarked
+                                            ? "text-amber-500 bg-amber-50 hover:bg-amber-100"
+                                            : "text-slate-400 hover:text-amber-500 hover:bg-amber-50"
+                                    )}
+                                    title={isBookmarked ? "Remove bookmark" : "Add bookmark"}
+                                >
+                                    {isBookmarked ? <BookmarkCheck size={24} /> : <Bookmark size={24} />}
+                                </button>
                             </div>
 
                             {/* Options List */}
