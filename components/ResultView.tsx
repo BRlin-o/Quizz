@@ -5,9 +5,13 @@ import { Card, CardBody, Button, CircularProgress } from '@heroui/react';
 import { Trophy, RefreshCcw, Home } from 'lucide-react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
+import { useParams } from 'next/navigation';
 
 export default function ResultView() {
-    const { score, questions, restartQuiz } = useQuizStore();
+    const { score, questions, restartQuiz, sessionId } = useQuizStore();
+    const params = useParams();
+    const slug = params.slug as string;
+
     const percentage = Math.round((score / questions.length) * 100);
 
     let message = "Good effort!";
@@ -75,15 +79,31 @@ export default function ResultView() {
                                 variant="shadow"
                                 size="lg"
                                 startContent={<RefreshCcw size={18} />}
+                                className={sessionId ? "col-span-1" : "col-span-2"}
                             >
                                 Try Again
                             </Button>
+
+                            {sessionId && (
+                                <Button
+                                    as={Link}
+                                    href={`/quiz/${slug}/analysis/${sessionId}`}
+                                    color="secondary"
+                                    variant="flat"
+                                    size="lg"
+                                    startContent={<Trophy size={18} />}
+                                >
+                                    Analysis
+                                </Button>
+                            )}
+
                             <Button
                                 as={Link}
-                                href="/"
+                                href={`/quiz/${slug}`}
                                 color="default"
                                 variant="flat"
                                 size="lg"
+                                className="col-span-2"
                                 startContent={<Home size={18} />}
                             >
                                 Back Home
