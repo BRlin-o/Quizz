@@ -2,17 +2,33 @@
 
 import { useEffect } from 'react';
 import { useQuizStore } from '@/store/useQuizStore';
-import { Question } from '@/types';
-import QuizInterface from '@/components/QuizInterface'; // We will create this next
+import { Question, PracticeSession } from '@/types';
+import QuizInterface from '@/components/QuizInterface';
+import AutoSaveProvider from '@/components/AutoSaveProvider';
 
 interface QuizWrapperProps {
     questions: Question[];
     title: string;
     mode: string;
+    // Additional props for session tracking
+    quizSlug: string;
+    filenames: string[];
+    shuffleSeed?: string;
+    // Optional: resume from existing session
+    resumeSession?: PracticeSession | null;
 }
 
-export default function QuizWrapper({ questions, title, mode }: QuizWrapperProps) {
+export default function QuizWrapper({
+    questions,
+    title,
+    mode,
+    quizSlug,
+    filenames,
+    shuffleSeed,
+    resumeSession
+}: QuizWrapperProps) {
     const startQuiz = useQuizStore((state) => state.startQuiz);
+    const startQuizFromSession = useQuizStore((state) => state.startQuizFromSession);
     const updateSettings = useQuizStore((state) => state.updateSettings);
 
     useEffect(() => {
@@ -20,8 +36,24 @@ export default function QuizWrapper({ questions, title, mode }: QuizWrapperProps
         const lang = mode === 'translated' ? 'zh' : 'en';
         updateSettings({ preferredLanguage: lang });
 
-        startQuiz(questions, title);
-    }, [questions, title, startQuiz, mode, updateSettings]);
+        if (resumeSession) {
+            // Resume from existing session
+            startQuizFromSession(resumeSession);
+        } else {
+            // Start fresh
+            startQuiz(questions, title);
+        }
+    }, [questions, title, startQuiz, startQuizFromSession, mode, updateSettings, resumeSession]);
 
-    return <QuizInterface />;
+    return (
+        <AutoSaveProvider
+            quizSlug={quizSlug}
+            filenames={filenames}
+            shuffleSeed={shuffleSeed}
+            mode={mode}
+        >
+            <QuizInterface />
+        </AutoSaveProvider>
+    );
 }
+

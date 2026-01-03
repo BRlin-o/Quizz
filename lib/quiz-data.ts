@@ -4,7 +4,9 @@ import matter from 'gray-matter';
 import { Question, QuizSet, QuizSetGroup, QuizVariant } from '@/types';
 
 // Points to the sibling 'outputs' directory relative to the project root
-const OUTPUTS_DIR = path.resolve(process.cwd(), '../outputs');
+const OUTPUTS_DIR = process.env.QUIZ_DATA_PATH
+    ? path.resolve(process.cwd(), process.env.QUIZ_DATA_PATH)
+    : path.resolve(process.cwd(), '../outputs');
 
 export async function getQuizSets(): Promise<QuizSet[]> {
     try {

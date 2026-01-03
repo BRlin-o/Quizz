@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { QuizSetGroup } from '@/types';
+import { useState, useMemo, useEffect } from 'react';
+import { QuizSetGroup, PracticeSession } from '@/types';
 import { useRouter } from 'next/navigation';
 import { Button, Card, CardBody, Input, Tooltip, Select, SelectItem, RadioGroup, Radio } from "@heroui/react";
-import { Play, Dices, RotateCcw } from "lucide-react";
+import { Play, Dices, RotateCcw, PlayCircle, Trash2 } from "lucide-react";
+import { usePracticeStore } from '@/store/usePracticeStore';
 
 interface QuizVariantSelectorProps {
     slug: string;
@@ -18,35 +19,40 @@ export default function QuizVariantSelector({ slug, groups }: QuizVariantSelecto
     const [selectedGroupId, setSelectedGroupId] = useState<string>(groups.length > 0 ? groups[0].id : '');
     const [mode, setMode] = useState<string>("original"); // 'original', 'translated', 'mixed'
     const [shuffleSeed, setShuffleSeed] = useState<string>("-1");
+    const [inProgressSession, setInProgressSession] = useState<PracticeSession | null>(null);
+
+    // Practice store
+    const getInProgressSession = usePracticeStore(state => state.getInProgressSession);
+    const deleteSession = usePracticeStore(state => state.deleteSession);
 
     // Get selected group
     const selectedGroup = useMemo(() =>
         groups.find(g => g.id === selectedGroupId) || groups[0],
         [groups, selectedGroupId]);
 
+    // Get sorted variants for filenames
+    const sortedVariants = useMemo(() => {
+        if (!selectedGroup) return [];
+        return [...selectedGroup.variants].sort((a, b) => {
+            if (a.language === 'en' || a.label === 'Original') return -1;
+            return 1;
+        });
+    }, [selectedGroup]);
+
+    const filenames = useMemo(() => sortedVariants.map(v => v.filename), [sortedVariants]);
+
+    // Check for in-progress session when settings change
+    useEffect(() => {
+        if (filenames.length > 0) {
+            const session = getInProgressSession(slug, filenames, mode);
+            setInProgressSession(session);
+        }
+    }, [slug, filenames, mode, getInProgressSession]);
+
     const handleStart = () => {
         if (!selectedGroup) return;
 
         const params = new URLSearchParams();
-
-        // Determine files based on mode
-        let files: string[] = [];
-
-        // We always want to carry the variants if we want to enable switching languages.
-        // For 'mixed' mode, we MUST have both.
-        // For 'original' or 'translated', if we want to support switching, we need both loaded and merged.
-        // If the user strictly wants NO access to translation, we would only send one.
-        // But "toggle" feature suggests availability.
-        // So we send ALL variants in the group by default.
-
-        // However, we should preserve the ORDER if it matters for the "Base" question.
-        // Usually En first.
-        const sortedVariants = [...selectedGroup.variants].sort((a, b) => {
-            if (a.language === 'en' || a.label === 'Original') return -1;
-            return 1;
-        });
-
-        files = sortedVariants.map(v => v.filename);
 
         if (mode === 'mixed') {
             params.set('mode', 'mixed');
@@ -56,10 +62,31 @@ export default function QuizVariantSelector({ slug, groups }: QuizVariantSelecto
             params.set('mode', 'original');
         }
 
-        params.set('files', files.join(','));
+        params.set('files', filenames.join(','));
         params.set('shuffle_seed', shuffleSeed);
 
         router.push(`/quiz/${slug}/play?${params.toString()}`);
+    };
+
+    const handleResume = () => {
+        if (!inProgressSession) return;
+
+        const params = new URLSearchParams();
+        params.set('mode', inProgressSession.mode);
+        params.set('files', inProgressSession.filenames.join(','));
+        if (inProgressSession.shuffleSeed) {
+            params.set('shuffle_seed', inProgressSession.shuffleSeed);
+        }
+        params.set('resume', inProgressSession.id);
+
+        router.push(`/quiz/${slug}/play?${params.toString()}`);
+    };
+
+    const handleDiscardSession = () => {
+        if (inProgressSession) {
+            deleteSession(inProgressSession.id);
+            setInProgressSession(null);
+        }
     };
 
     const generateRandomSeed = () => {
@@ -80,11 +107,57 @@ export default function QuizVariantSelector({ slug, groups }: QuizVariantSelecto
 
     const hasTranslation = selectedGroup?.variants.some(v => v.language !== 'en');
 
+    // Format session progress
+    const sessionProgress = inProgressSession
+        ? `${Object.keys(inProgressSession.answers).length}/${inProgressSession.totalQuestions}`
+        : null;
+
     return (
         <Card className="w-full">
             <CardBody className="gap-6 p-6">
+                {/* Resume In-Progress Session */}
+                {inProgressSession && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <h4 className="font-semibold text-amber-800">Continue Previous Session</h4>
+                                <p className="text-sm text-amber-600">
+                                    Progress: {sessionProgress} answered
+                                    {inProgressSession.bookmarkedQuestions.length > 0 && (
+                                        <span className="ml-2">• {inProgressSession.bookmarkedQuestions.length} bookmarked</span>
+                                    )}
+                                </p>
+                            </div>
+                            <Tooltip content="Discard this session">
+                                <Button
+                                    isIconOnly
+                                    size="sm"
+                                    variant="light"
+                                    color="danger"
+                                    onPress={handleDiscardSession}
+                                    aria-label="Discard Session"
+                                >
+                                    <Trash2 size={16} />
+                                </Button>
+                            </Tooltip>
+                        </div>
+                        <Button
+                            color="warning"
+                            variant="shadow"
+                            fullWidth
+                            startContent={<PlayCircle size={18} />}
+                            onPress={handleResume}
+                            className="font-semibold"
+                        >
+                            Resume Quiz
+                        </Button>
+                    </div>
+                )}
+
                 <div>
-                    <h3 className="text-lg font-semibold mb-4 text-slate-900">Quiz Settings</h3>
+                    <h3 className="text-lg font-semibold mb-4 text-slate-900">
+                        {inProgressSession ? 'Or Start New Quiz' : 'Quiz Settings'}
+                    </h3>
 
                     <div className="space-y-6">
                         {/* Group Selection */}
@@ -187,3 +260,4 @@ export default function QuizVariantSelector({ slug, groups }: QuizVariantSelecto
         </Card>
     );
 }
+

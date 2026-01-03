@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Play, RotateCw, CheckCircle2, Terminal, Search, ChevronDown, CheckSquare, Square, PanelRightOpen, PanelRightClose, ChevronLeft, ChevronRight, ArrowLeftRight, FileInput, FileOutput } from 'lucide-react';
+import { X, Play, RotateCw, CheckCircle2, Terminal, Search, ChevronDown, CheckSquare, Square, PanelRightOpen, PanelRightClose, ChevronLeft, ChevronRight, ArrowLeftRight, FileInput, FileOutput, Languages } from 'lucide-react';
 import { addToast } from '@heroui/react';
 import { GlobalTranslationSettings, Template } from '@/config/translation';
 import AdditionalDataInput from './AdditionalDataInput';
@@ -74,6 +74,11 @@ export default function BatchTranslationInterface({
     const [previewTab, setPreviewTab] = useState<'input' | 'output' | 'diff'>('input');
     const [batchOutputs, setBatchOutputs] = useState<Record<number, string>>({});  // page -> raw output
     const logsEndRef = useRef<HTMLDivElement>(null);
+
+    // --- State: Original vs Translated ---
+    const [originalQuestions, setOriginalQuestions] = useState<any[]>([]); // Snapshot of questions before translation
+    const [translatedQuestions, setTranslatedQuestions] = useState<Record<string | number, any>>({}); // id -> translated question
+    const [showTranslated, setShowTranslated] = useState(false); // Toggle for question list view
 
     // Auto-scroll logs
     useEffect(() => {
@@ -151,6 +156,12 @@ export default function BatchTranslationInterface({
         setResults([]);
         setBatchOutputs({});
         setProgress(0);
+
+        // Snapshot original questions and clear translated state
+        setOriginalQuestions([...questions]);
+        setTranslatedQuestions({});
+        setShowTranslated(true); // Switch to translated view to show progress
+
         addLog(`Starting batch job for ${localCheckedIds.length} questions...`);
         addLog(`Engine: ${jobSettings.config.engine} | Batch Size: ${jobSettings.batchSize || 10}`);
 
@@ -309,10 +320,30 @@ export default function BatchTranslationInterface({
                                     // Update in full list
                                     const idx = allUpdatedQuestions.findIndex(q => String(q.id) === String(p.id));
                                     if (idx !== -1) {
-                                        allUpdatedQuestions[idx] = { ...allUpdatedQuestions[idx], ...p };
+                                        // Construct engine name (e.g. "openai (gpt-4o)" or "google")
+                                        const engine = jobSettings.config.engine;
+                                        const model = jobSettings.config.model || jobSettings.config.engines?.[engine]?.model;
+                                        const engineName = ['openai', 'claude', 'gemini', 'ollama', 'lmstudio'].includes(engine) && model
+                                            ? `${engine} (${model})`
+                                            : engine;
+
+                                        allUpdatedQuestions[idx] = {
+                                            ...allUpdatedQuestions[idx],
+                                            ...p,
+                                            translation_engine: engineName
+                                        };
                                     }
+
+                                    // Update translatedQuestions state for real-time UI update
+                                    setTranslatedQuestions(prev => ({
+                                        ...prev,
+                                        [p.id]: { ...originalQ, ...p }
+                                    }));
                                 }
                             });
+
+                            // Real-time update: propagate after each batch
+                            onUpdateQuestions([...allUpdatedQuestions]);
                         } else if (typeof parsed === 'object') {
                             // Single object response
                             addLog(`  ⚠ Batch ${batchNum}: Received object instead of array`);
@@ -327,6 +358,33 @@ export default function BatchTranslationInterface({
                                 original: originalQ.question,
                                 translated: translatedText
                             }]);
+
+                            // Construct engine name
+                            const engine = jobSettings.config.engine;
+                            const model = jobSettings.config.model || jobSettings.config.engines?.[engine]?.model;
+                            const engineName = ['openai', 'claude', 'gemini', 'ollama', 'lmstudio'].includes(engine) && model
+                                ? `${engine} (${model})`
+                                : engine;
+
+                            const updatedQ = {
+                                ...originalQ,
+                                question: translatedText,
+                                translation_engine: engineName
+                            };
+
+                            // Update translatedQuestions for single item
+                            setTranslatedQuestions(prev => ({
+                                ...prev,
+                                [originalQ.id]: updatedQ
+                            }));
+
+                            // Update in full list
+                            const idx = allUpdatedQuestions.findIndex(q => String(q.id) === String(originalQ.id));
+                            if (idx !== -1) {
+                                allUpdatedQuestions[idx] = updatedQ;
+                                // Real-time update for single item
+                                onUpdateQuestions([...allUpdatedQuestions]);
+                            }
                         }
                     }
 
@@ -444,10 +502,41 @@ export default function BatchTranslationInterface({
                                 {localCheckedIds.length > 0 && localCheckedIds.length === filteredQuestions.length ? 'None' : 'All'}
                             </button>
                         </div>
+
+                        {/* Original/Translated Toggle - only show when translation has occurred */}
+                        {Object.keys(translatedQuestions).length > 0 && (
+                            <div className="flex items-center gap-1 pt-2 border-t border-neutral-800">
+                                <button
+                                    onClick={() => setShowTranslated(false)}
+                                    className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded text-[10px] font-medium transition-all ${!showTranslated
+                                        ? 'bg-indigo-600 text-white'
+                                        : 'text-neutral-400 hover:text-white hover:bg-neutral-800'
+                                        }`}
+                                >
+                                    Original
+                                </button>
+                                <button
+                                    onClick={() => setShowTranslated(true)}
+                                    className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded text-[10px] font-medium transition-all ${showTranslated
+                                        ? 'bg-green-600 text-white'
+                                        : 'text-neutral-400 hover:text-white hover:bg-neutral-800'
+                                        }`}
+                                >
+                                    <Languages className="w-3 h-3" />
+                                    Translated ({Object.keys(translatedQuestions).length})
+                                </button>
+                            </div>
+                        )}
                     </div>
                     <div className="flex-1 overflow-y-auto">
                         {filteredQuestions.map(q => {
                             const isChecked = localCheckedIds.includes(q.id);
+                            // Use translated version if available and toggle is on, otherwise use original
+                            const displayQ = showTranslated && translatedQuestions[q.id]
+                                ? translatedQuestions[q.id]
+                                : (originalQuestions.find(oq => oq.id === q.id) || q);
+                            const isTranslated = showTranslated && translatedQuestions[q.id];
+
                             return (
                                 <div
                                     key={q.id}
@@ -461,8 +550,9 @@ export default function BatchTranslationInterface({
                                         <div className="flex items-center gap-2 mb-1">
                                             <span className="font-mono text-[10px] text-indigo-400">#{q.id}</span>
                                             <span className="text-[9px] bg-neutral-800 px-1 py-0.5 rounded text-neutral-400 uppercase">{q.type}</span>
+                                            {isTranslated && <span className="text-[9px] bg-green-600/20 px-1 py-0.5 rounded text-green-400">✓</span>}
                                         </div>
-                                        <p className="text-[11px] text-neutral-300 line-clamp-2">{q.question}</p>
+                                        <p className={`text-[11px] line-clamp-2 ${isTranslated ? 'text-green-300' : 'text-neutral-300'}`}>{displayQ.question}</p>
                                     </div>
                                 </div>
                             );
@@ -669,7 +759,9 @@ export default function BatchTranslationInterface({
                             {/* Content */}
                             {isPreviewOpen ? (() => {
                                 const batchSize = jobSettings.batchSize || 10;
-                                const selectedQs = questions.filter(q => localCheckedIds.includes(q.id));
+                                // Always use originalQuestions for preview if available (to preserve before/after comparison)
+                                const sourceQuestions = originalQuestions.length > 0 ? originalQuestions : questions;
+                                const selectedQs = sourceQuestions.filter(q => localCheckedIds.includes(q.id));
                                 const totalPages = Math.ceil(selectedQs.length / batchSize) || 1;
                                 const currentPage = Math.min(previewPage, totalPages);
                                 const startIdx = (currentPage - 1) * batchSize;
