@@ -21,7 +21,8 @@ interface PracticeHistoryProps {
 
 export default function PracticeHistory({ slug }: PracticeHistoryProps) {
     const router = useRouter();
-    const getSessionsByQuiz = usePracticeStore(state => state.getSessionsByQuiz);
+    // Subscribe to sessions directly so we re-render on changes
+    const allSessions = usePracticeStore(state => state.sessions);
     const deleteSession = usePracticeStore(state => state.deleteSession);
 
     // Fix hydration mismatch by only rendering after mount
@@ -31,7 +32,12 @@ export default function PracticeHistory({ slug }: PracticeHistoryProps) {
         setIsMounted(true);
     }, []);
 
-    const sessions = useMemo(() => isMounted ? getSessionsByQuiz(slug) : [], [slug, getSessionsByQuiz, isMounted]);
+    const sessions = useMemo(() => {
+        if (!isMounted) return [];
+        return allSessions
+            .filter(s => s.quizSlug === slug)
+            .sort((a, b) => new Date(b.lastUpdatedAt).getTime() - new Date(a.lastUpdatedAt).getTime());
+    }, [allSessions, slug, isMounted]);
 
     if (!isMounted || sessions.length === 0) {
         return null;

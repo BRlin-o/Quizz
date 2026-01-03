@@ -36,6 +36,18 @@ export default function QuizSettings() {
                         />
                     </div>
 
+                    <div className="flex items-center justify-between">
+                        <div className="flex flex-col">
+                            <span className="text-sm font-medium text-slate-700">Shuffle Options</span>
+                            <span className="text-xs text-slate-500">Randomize answer order</span>
+                        </div>
+                        <Switch
+                            size="sm"
+                            isSelected={settings.shuffleOptions || false}
+                            onValueChange={(val) => updateSettings({ shuffleOptions: val })}
+                        />
+                    </div>
+
                     {/* Font Size Control */}
                     <div className="flex flex-col gap-2">
                         <span className="text-sm font-medium text-slate-700">Font Size</span>
@@ -80,8 +92,8 @@ export default function QuizSettings() {
                             <button
                                 onClick={() => updateSettings({ layoutMode: 'centered' })}
                                 className={`flex-1 py-1 rounded-md text-sm font-medium transition-colors ${(settings.layoutMode || 'centered') === 'centered'
-                                        ? 'bg-white text-indigo-600 shadow-sm'
-                                        : 'text-slate-500 hover:text-slate-700'
+                                    ? 'bg-white text-indigo-600 shadow-sm'
+                                    : 'text-slate-500 hover:text-slate-700'
                                     }`}
                             >
                                 Centered
@@ -89,8 +101,8 @@ export default function QuizSettings() {
                             <button
                                 onClick={() => updateSettings({ layoutMode: 'full' })}
                                 className={`flex-1 py-1 rounded-md text-sm font-medium transition-colors ${settings.layoutMode === 'full'
-                                        ? 'bg-white text-indigo-600 shadow-sm'
-                                        : 'text-slate-500 hover:text-slate-700'
+                                    ? 'bg-white text-indigo-600 shadow-sm'
+                                    : 'text-slate-500 hover:text-slate-700'
                                     }`}
                             >
                                 Full Width

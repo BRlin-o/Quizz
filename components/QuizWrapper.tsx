@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useQuizStore } from '@/store/useQuizStore';
 import { Question, PracticeSession } from '@/types';
 import QuizInterface from '@/components/QuizInterface';
@@ -16,6 +16,7 @@ interface QuizWrapperProps {
     shuffleSeed?: string;
     // Optional: resume from existing session
     resumeSession?: PracticeSession | null;
+    shuffleOptions?: boolean;
 }
 
 export default function QuizWrapper({
@@ -25,7 +26,8 @@ export default function QuizWrapper({
     quizSlug,
     filenames,
     shuffleSeed,
-    resumeSession
+    resumeSession,
+    shuffleOptions = false
 }: QuizWrapperProps) {
     const startQuiz = useQuizStore((state) => state.startQuiz);
     const startQuizFromSession = useQuizStore((state) => state.startQuizFromSession);
@@ -34,16 +36,25 @@ export default function QuizWrapper({
     useEffect(() => {
         // Set initial language preference based on mode
         const lang = mode === 'translated' ? 'zh' : 'en';
-        updateSettings({ preferredLanguage: lang });
+
+        // Update settings including shuffleOptions
+        updateSettings({
+            preferredLanguage: lang,
+            shuffleOptions: shuffleOptions
+        });
 
         if (resumeSession) {
             // Resume from existing session
             startQuizFromSession(resumeSession);
         } else {
             // Start fresh
+            // Ensure we wait for the updateSettings to take effect if possible, 
+            // but Zustand is synchronous usually.
+            // However, startQuiz relies on `get().settings`.
+            // Since updateSettings is called just before, and Zustand is sync, it should be fine.
             startQuiz(questions, title);
         }
-    }, [questions, title, startQuiz, startQuizFromSession, mode, updateSettings, resumeSession]);
+    }, [questions, title, startQuiz, startQuizFromSession, mode, updateSettings, resumeSession, shuffleOptions]);
 
     return (
         <AutoSaveProvider

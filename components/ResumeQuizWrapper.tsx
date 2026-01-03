@@ -13,6 +13,7 @@ interface ResumeQuizWrapperProps {
     filenames: string[];
     shuffleSeed?: string;
     resumeSessionId?: string;
+    shuffleOptions?: boolean; // NEW
 }
 
 export default function ResumeQuizWrapper({
@@ -22,7 +23,8 @@ export default function ResumeQuizWrapper({
     quizSlug,
     filenames,
     shuffleSeed,
-    resumeSessionId
+    resumeSessionId,
+    shuffleOptions = false
 }: ResumeQuizWrapperProps) {
     const [resumeSession, setResumeSession] = useState<PracticeSession | null>(null);
     const [isLoading, setIsLoading] = useState(!!resumeSessionId);
@@ -56,6 +58,7 @@ export default function ResumeQuizWrapper({
             filenames={filenames}
             shuffleSeed={shuffleSeed}
             resumeSession={resumeSession}
+            shuffleOptions={shuffleOptions}
         />
     );
 }

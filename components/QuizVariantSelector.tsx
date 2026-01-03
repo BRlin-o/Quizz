@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { QuizSetGroup, PracticeSession } from '@/types';
 import { useRouter } from 'next/navigation';
-import { Button, Card, CardBody, Input, Tooltip, Select, SelectItem, RadioGroup, Radio } from "@heroui/react";
+import { Button, Card, CardBody, Input, Tooltip, Select, SelectItem, RadioGroup, Radio, Checkbox } from "@heroui/react";
 import { Play, Dices, RotateCcw, PlayCircle, Trash2 } from "lucide-react";
 import { usePracticeStore } from '@/store/usePracticeStore';
 
@@ -19,6 +19,7 @@ export default function QuizVariantSelector({ slug, groups }: QuizVariantSelecto
     const [selectedGroupId, setSelectedGroupId] = useState<string>(groups.length > 0 ? groups[0].id : '');
     const [mode, setMode] = useState<string>("original"); // 'original', 'translated', 'mixed'
     const [shuffleSeed, setShuffleSeed] = useState<string>("-1");
+    const [shuffleOptions, setShuffleOptions] = useState<boolean>(false); // NEW
     const [inProgressSession, setInProgressSession] = useState<PracticeSession | null>(null);
 
     // Practice store
@@ -64,6 +65,9 @@ export default function QuizVariantSelector({ slug, groups }: QuizVariantSelecto
 
         params.set('files', filenames.join(','));
         params.set('shuffle_seed', shuffleSeed);
+        if (shuffleOptions) {
+            params.set('shuffle_options', 'true');
+        }
 
         router.push(`/quiz/${slug}/play?${params.toString()}`);
     };
@@ -211,6 +215,24 @@ export default function QuizVariantSelector({ slug, groups }: QuizVariantSelecto
                 </div>
 
                 <div className="flex flex-col gap-3 py-4 border-y border-slate-100">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <span className="font-medium text-slate-700">Shuffle Options</span>
+                            <span className="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">New</span>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <Checkbox
+                            isSelected={shuffleOptions}
+                            onValueChange={setShuffleOptions}
+                            size="sm"
+                        >
+                            <span className="text-sm text-slate-600">Randomize answer order</span>
+                        </Checkbox>
+                    </div>
+                </div>
+
+                <div className="flex flex-col gap-3 py-4 border-b border-slate-100">
                     <div className="flex items-center gap-2">
                         <span className="font-medium text-slate-700">Shuffle Questions</span>
                         <span className="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">Optional</span>

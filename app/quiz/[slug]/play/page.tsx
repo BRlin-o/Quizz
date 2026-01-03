@@ -2,6 +2,7 @@ import { getQuizQuestions, getQuizSets } from "@/lib/quiz-data";
 import ResumeQuizWrapper from "@/components/ResumeQuizWrapper";
 import { notFound, redirect } from "next/navigation";
 import { Question } from "@/types";
+import { shuffleQuestions, shuffleOptionsInPlace } from "@/lib/shuffle";
 
 interface PageProps {
     params: Promise<{
@@ -10,24 +11,15 @@ interface PageProps {
     searchParams: Promise<{
         files?: string;
         shuffle_seed?: string;
+        shuffle_options?: string;
         mode?: string;
         resume?: string;  // Session ID to resume
     }>;
 }
 
-// Simple seeded random number generator (Linear Congruential Generator)
-function mulberry32(a: number) {
-    return function () {
-        var t = a += 0x6D2B79F5;
-        t = Math.imul(t ^ t >>> 15, t | 1);
-        t ^= t + Math.imul(t ^ t >>> 7, t | 61);
-        return ((t ^ t >>> 14) >>> 0) / 4294967296;
-    }
-}
-
 export default async function QuizPlayPage({ params, searchParams }: PageProps) {
     const { slug } = await params;
-    const { files, shuffle_seed, mode, resume } = await searchParams;
+    const { files, shuffle_seed, shuffle_options, mode, resume } = await searchParams;
 
     if (!files) {
         redirect(`/quiz/${slug}`);
@@ -52,27 +44,18 @@ export default async function QuizPlayPage({ params, searchParams }: PageProps) 
     try {
         questions = await getQuizQuestions(slug, filenames, mergeTranslations);
 
-        // Handle Seeded Shuffle (only for new sessions, not resume)
-        // When resuming, questions are restored from the session
+        // Handle Shuffling (only for new sessions, not resume)
+        // When resuming, questions are restored from the session as-is
         if (!resume) {
-            const seedStr = shuffle_seed;
-            // Check if seed is provided and NOT '-1'
-            if (seedStr && seedStr !== '-1') {
-                // Convert string seed to number for the PRNG
-                let seedNum = parseInt(seedStr);
-                if (isNaN(seedNum)) {
-                    // If user put text manually in URL
-                    seedNum = seedStr.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-                }
-
-                const random = mulberry32(seedNum);
-
-                // Fisher-Yates shuffle with seeded random
-                for (let i = questions.length - 1; i > 0; i--) {
-                    const j = Math.floor(random() * (i + 1));
-                    [questions[i], questions[j]] = [questions[j], questions[i]];
-                }
+            // 1. Shuffle Questions (Deterministic with seed)
+            if (shuffle_seed && shuffle_seed !== '-1') {
+                questions = shuffleQuestions(questions, shuffle_seed);
             }
+
+            // 2. Shuffle Options (Random / Non-deterministic)
+            // MOVED TO CLIENT: We no longer shuffle in-place on the server.
+            // Instead, we pass the 'shuffle_options' param to the client wrapper.
+            // This allows toggling it off to restore the original order provided here.
         }
     } catch (error) {
         console.error(error);
@@ -91,6 +74,7 @@ export default async function QuizPlayPage({ params, searchParams }: PageProps) 
             filenames={filenames}
             shuffleSeed={shuffle_seed}
             resumeSessionId={resume}
+            shuffleOptions={shuffle_options === 'true'}
         />
     );
 }
